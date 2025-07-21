@@ -22,6 +22,7 @@
 #include "userdb.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-util.h"
+#include "format-util.h"
 
 #define ITERATIONS_MAX 64U
 #define RUNTIME_MAX_USEC (5 * USEC_PER_MINUTE)
@@ -90,12 +91,14 @@ static int build_user_json(sd_varlink *link, UserRecord *ur, sd_json_variant **r
         assert(ur);
         assert(ret);
 
-        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        r = sd_varlink_get_uid(link, &peer_uid);
         if (r < 0) {
-                log_debug_errno(r, "Unable to query peer UID, ignoring: %m");
+                log_debug_errno(r, "Unable to query requestor's UID, ignoring: %m");
                 trusted = false;
-        } else
+        } else {
                 trusted = peer_uid == 0 || peer_uid == ur->uid;
+                log_debug("Peer UID is " UID_FMT "; %strusted", peer_uid, (trusted ? "" : "un"));
+        }
 
         flags = USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_BINDING|USER_RECORD_STRIP_SECRET|USER_RECORD_ALLOW_STATUS|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE;
         if (trusted)
@@ -250,12 +253,14 @@ static int build_group_json(sd_varlink *link, GroupRecord *gr, sd_json_variant *
         assert(gr);
         assert(ret);
 
-        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        r = sd_varlink_get_uid(link, &peer_uid);
         if (r < 0) {
-                log_debug_errno(r, "Unable to query peer UID, ignoring: %m");
+                log_debug_errno(r, "Unable to query requestor's UID, ignoring: %m");
                 trusted = false;
-        } else
+        } else {
                 trusted = peer_uid == 0;
+                log_debug("Peer UID is " UID_FMT "; %strusted", peer_uid, (trusted ? "" : "un"));
+        }
 
         flags = USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_BINDING|USER_RECORD_STRIP_SECRET|USER_RECORD_ALLOW_STATUS|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE;
         if (trusted)

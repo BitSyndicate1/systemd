@@ -18,6 +18,7 @@ ListenStream=/run/systemd/userdb/io.systemd.Multiplexer
 Symlinks=/run/systemd/userdb/io.systemd.NameServiceSwitch /run/systemd/userdb/io.systemd.DropIn
 SocketMode=0666
 RemoveOnStop=yes
+PassCredentials=true
 
 [Install]
 WantedBy=sockets.target
