@@ -2,6 +2,7 @@
 
 #include "sd-varlink.h"
 
+#include "format-util.h"
 #include "group-record.h"
 #include "hashmap.h"
 #include "homed-home.h"
@@ -28,17 +29,20 @@ typedef struct LookupParameters {
 static bool client_is_trusted(sd_varlink *link, Home *h) {
         uid_t peer_uid;
         int r;
+        bool trusted;
 
         assert(link);
         assert(h);
 
-        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        r = sd_varlink_get_uid(link, &peer_uid);
         if (r < 0) {
                 log_debug_errno(r, "Unable to query peer UID, ignoring: %m");
                 return false;
         }
 
-        return peer_uid == 0 || peer_uid == h->uid;
+        trusted = peer_uid == 0 || peer_uid == h->uid;
+        log_debug("Peer UID is " UID_FMT "; %strusted", peer_uid, (trusted ? "" : "un"));
+        return trusted;
 }
 
 static int build_user_json(Home *h, bool trusted, sd_json_variant **ret) {
