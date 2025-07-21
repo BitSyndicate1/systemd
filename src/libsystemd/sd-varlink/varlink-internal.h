@@ -157,8 +157,12 @@ struct sd_varlink {
         sd_varlink_symbol *current_method;
 
         int peer_pidfd;
-        struct ucred ucred;
-        bool ucred_acquired:1;
+        struct ucred ucred_peer; /* SO_PEERCRED data, i.e. always the connection time identity of the peer at time of connect() */
+        struct ucred ucred_send; /* SCM_CREDENTIALS data to send for impersonation purposes */
+        struct ucred ucred_recv; /* most recently read SCM_CREDENTIALS data received */
+        bool ucred_peer_acquired:1;
+        bool ucred_send_set:1;
+        bool ucred_recv_acquired:1;
 
         bool write_disconnected:1;
         bool read_disconnected:1;

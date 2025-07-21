@@ -987,6 +987,8 @@ global:
         sd_varlink_get_peer_gid;
         sd_varlink_get_peer_pid;
         sd_varlink_get_peer_pidfd;
+		sd_varlink_get_uid;
+		sd_varlink_ucred_enable_impersonate;
         sd_varlink_get_peer_uid;
         sd_varlink_get_server;
         sd_varlink_get_timeout;

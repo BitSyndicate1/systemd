@@ -207,6 +207,8 @@ int sd_varlink_get_peer_uid(sd_varlink *v, uid_t *ret);
 int sd_varlink_get_peer_gid(sd_varlink *v, gid_t *ret);
 int sd_varlink_get_peer_pid(sd_varlink *v, pid_t *ret);
 int sd_varlink_get_peer_pidfd(sd_varlink *v);
+int sd_varlink_get_uid(sd_varlink *v, uid_t *ret);
+void sd_varlink_ucred_enable_impersonate(sd_varlink *v_send, sd_varlink *v_recv);
 
 int sd_varlink_set_relative_timeout(sd_varlink *v, uint64_t usec);
 
