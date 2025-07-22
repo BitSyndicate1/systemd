@@ -1013,6 +1013,10 @@ CHANGES WITH 258 in spe:
         * User/group records gained a new "uuid" field that may be used to
           place an identifying UUID in the record.
 
+        * systemd-userdbd and systemd-homed now honour credentials passed
+          using SO_PASSCRED, and systemd-userdbd acting as multiplexer sends
+          the credentials of the original connecting client to all services
+
         systemd-run and run0:
 
         * run0 gained a new --lightweight= switch which controls whether to
