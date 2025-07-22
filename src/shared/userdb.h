@@ -8,6 +8,7 @@
 /* Inquire local services for user/group records */
 
 typedef struct UserDBIterator UserDBIterator;
+typedef struct Varlink Varlink;
 
 UserDBIterator *userdb_iterator_free(UserDBIterator *iterator);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UserDBIterator*, userdb_iterator_free);
@@ -41,19 +42,19 @@ typedef enum UserDBFlags {
  *  -ETIMEDOUT: Time-out
  */
 
-int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret);
-int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret);
-int userdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret);
+int userdb_by_name(sd_varlink *v, const char *name, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret);
+int userdb_by_uid(sd_varlink *v, uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret);
+int userdb_all(sd_varlink *v, const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret);
 int userdb_iterator_get(UserDBIterator *iterator, const UserDBMatch *match, UserRecord **ret);
 
-int groupdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret);
-int groupdb_by_gid(gid_t gid, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret);
-int groupdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret);
+int groupdb_by_name(sd_varlink *v, const char *name, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret);
+int groupdb_by_gid(sd_varlink *v, gid_t gid, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret);
+int groupdb_all(sd_varlink *v, const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret);
 int groupdb_iterator_get(UserDBIterator *iterator, const UserDBMatch *match, GroupRecord **ret);
 
-int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **ret);
-int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **ret);
-int membershipdb_all(UserDBFlags flags, UserDBIterator **ret);
+int membershipdb_by_user(sd_varlink *v, const char *name, UserDBFlags flags, UserDBIterator **ret);
+int membershipdb_by_group(sd_varlink *v, const char *name, UserDBFlags flags, UserDBIterator **ret);
+int membershipdb_all(sd_varlink *v, UserDBFlags flags, UserDBIterator **ret);
 int membershipdb_iterator_get(UserDBIterator *iterator, char **user, char **group);
 int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret);
 

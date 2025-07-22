@@ -239,7 +239,7 @@ int machine_bind_user_prepare(
                 _cleanup_(user_record_unrefp) UserRecord *u = NULL, *cu = NULL;
                 _cleanup_(group_record_unrefp) GroupRecord *g = NULL, *cg = NULL;
 
-                r = userdb_by_name(*n, /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &u);
+                r = userdb_by_name(NULL, *n, /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &u);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user '%s': %m", *n);
 
@@ -261,7 +261,7 @@ int machine_bind_user_prepare(
                 if (!uid_is_valid(u->uid))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot bind user with no UID, refusing.");
 
-                r = groupdb_by_gid(user_record_gid(u), /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &g);
+                r = groupdb_by_gid(NULL, user_record_gid(u), /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &g);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve group of user '%s': %m", u->user_name);
 

@@ -16,6 +16,7 @@
 #include "path-util.h"
 #include "string-util.h"
 #include "user-util.h"
+#include "userdb.h"
 
 static int write_and_symlink(
                 const char *root,

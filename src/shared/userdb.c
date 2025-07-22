@@ -66,7 +66,7 @@ struct UserDBIterator {
         char *filter_user_name, *filter_group_name;
 };
 
-static int userdb_connect(UserDBIterator *iterator, const char *path, const char *method, bool more, sd_json_variant *query);
+static int userdb_connect(sd_varlink *varlink, UserDBIterator *iterator, const char *path, const char *method, bool more, sd_json_variant *query);
 
 UserDBIterator* userdb_iterator_free(UserDBIterator *iterator) {
         if (!iterator)
@@ -226,6 +226,7 @@ static int userdb_maybe_restart_query(
 
         /* NB: we stored the socket path in the varlink connection description when we set things up here! */
         r = userdb_connect(
+                        link,
                         iterator,
                         ASSERT_PTR(sd_varlink_get_description(link)),
                         iterator->method,
@@ -441,6 +442,7 @@ finish:
 }
 
 static int userdb_connect(
+                sd_varlink *vrecv,
                 UserDBIterator *iterator,
                 const char *path,
                 const char *method,
@@ -458,6 +460,8 @@ static int userdb_connect(
         if (r < 0)
                 return log_debug_errno(r, "Unable to connect to %s: %m", path);
 
+        if (vrecv)
+                sd_varlink_ucred_enable_impersonate(vl, vrecv);
         sd_varlink_set_userdata(vl, iterator);
 
         if (!iterator->event) {
@@ -506,6 +510,7 @@ static int userdb_connect(
 }
 
 static int userdb_start_query(
+                sd_varlink *v,
                 UserDBIterator *iterator,
                 const char *method, /* must be a static string, we are not going to copy this here! */
                 bool more,
@@ -551,7 +556,13 @@ static int userdb_start_query(
         if ((flags & (USERDB_AVOID_MULTIPLEXER|USERDB_EXCLUDE_DYNAMIC_USER|USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN)) == 0 &&
             !strv_contains(except, "io.systemd.Multiplexer") &&
             (!only || strv_contains(only, "io.systemd.Multiplexer"))) {
-                r = userdb_connect(iterator, "/run/systemd/userdb/io.systemd.Multiplexer", method, more, query);
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *patched_query = sd_json_variant_ref(query);
+
+                r = sd_json_variant_set_field_string(&patched_query, "service", "io.systemd.Multiplexer");
+                if (r < 0)
+                        return log_debug_errno(r, "Unable to set service JSON field: %m");
+
+                r = userdb_connect(v, iterator, "/run/systemd/userdb/io.systemd.Multiplexer", method, more, patched_query);
                 if (r >= 0) {
                         iterator->nss_covered = true; /* The multiplexer does NSS */
                         iterator->dropin_covered = true; /* It also handles drop-in stuff */
@@ -568,6 +579,7 @@ static int userdb_start_query(
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *patched_query = sd_json_variant_ref(query);
                 _cleanup_free_ char *p = NULL;
                 bool is_nss, is_dropin;
 
@@ -601,7 +613,12 @@ static int userdb_start_query(
                 if (!p)
                         return -ENOMEM;
 
-                r = userdb_connect(iterator, p, method, more, query);
+                patched_query = sd_json_variant_ref(query);
+                r = sd_json_variant_set_field_string(&patched_query, "service", de->d_name);
+                if (r < 0)
+                        return log_debug_errno(r, "Unable to set service JSON field: %m");
+
+                r = userdb_connect(v, iterator, p, method, more, patched_query);
                 if (is_nss && r >= 0) /* Turn off fallback NSS + dropin if we found the NSS/dropin service
                                        * and could connect to it */
                         iterator->nss_covered = true;
@@ -720,7 +737,6 @@ static int synthetic_nobody_user_build(UserRecord **ret) {
 
 static int synthetic_foreign_user_build(uid_t foreign_uid, UserRecord **ret) {
         assert(ret);
-
         if (!uid_is_valid(foreign_uid))
                 return -ESRCH;
         if (foreign_uid > 0xFFFF)
@@ -890,7 +906,7 @@ static int userdb_by_name_fallbacks(
         return -ESRCH;
 }
 
-int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret) {
+int userdb_by_name(sd_varlink *v, const char *name, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r;
@@ -909,7 +925,7 @@ int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags
                 uid_t uid;
 
                 if (parse_uid(name, &uid) >= 0)
-                        return userdb_by_uid(uid, match, flags, ret);
+                        return userdb_by_uid(v, uid, match, flags, ret);
         }
 
         if (!valid_user_group_name(name, VALID_USER_RELAX))
@@ -928,7 +944,7 @@ int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags
                 return -ENOMEM;
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ false, query, flags);
+        r = userdb_start_query(v, iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ false, query, flags);
         if (r >= 0) {
                 r = userdb_process(iterator, &ur, /* ret_group_record= */ NULL, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
                 if (r == -ENOEXEC) /* found a user matching UID or name, but not filter. In this case the
@@ -997,7 +1013,7 @@ static int userdb_by_uid_fallbacks(
         return -ESRCH;
 }
 
-int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret) {
+int userdb_by_uid(sd_varlink *v, uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r;
@@ -1018,7 +1034,7 @@ int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRe
                 return -ENOMEM;
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ false, query, flags);
+        r = userdb_start_query(v, iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ false, query, flags);
         if (r >= 0) {
                 r = userdb_process(iterator, &ur, /* ret_group_record= */ NULL, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
                 if (r == -ENOEXEC)
@@ -1039,7 +1055,7 @@ int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRe
         return 0;
 }
 
-int userdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret) {
+int userdb_all(sd_varlink *v, const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r, qr;
@@ -1054,7 +1070,7 @@ int userdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret
         if (!iterator)
                 return -ENOMEM;
 
-        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ true, query, flags);
+        qr = userdb_start_query(v, iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ true, query, flags);
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
@@ -1312,7 +1328,6 @@ static int groupdb_by_name_fallbacks(
                 UserDBIterator *iterator,
                 UserDBFlags flags,
                 GroupRecord **ret) {
-
         int r;
 
         assert(name);
@@ -1354,7 +1369,7 @@ static int groupdb_by_name_fallbacks(
         return -ESRCH;
 }
 
-int groupdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret) {
+int groupdb_by_name(sd_varlink *v, const char *name, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r;
@@ -1365,7 +1380,7 @@ int groupdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flag
                 gid_t gid;
 
                 if (parse_gid(name, &gid) >= 0)
-                        return groupdb_by_gid(gid, match, flags, ret);
+                        return groupdb_by_gid(v, gid, match, flags, ret);
         }
 
         if (!valid_user_group_name(name, VALID_USER_RELAX))
@@ -1384,7 +1399,7 @@ int groupdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flag
                 return -ENOMEM;
 
         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetGroupRecord", /* more= */ false, query, flags);
+        r = userdb_start_query(v, iterator, "io.systemd.UserDatabase.GetGroupRecord", /* more= */ false, query, flags);
         if (r >= 0) {
                 r = userdb_process(iterator, /* ret_user_record= */ NULL, &gr, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
                 if (r == -ENOEXEC)
@@ -1449,7 +1464,7 @@ static int groupdb_by_gid_fallbacks(
         return -ESRCH;
 }
 
-int groupdb_by_gid(gid_t gid, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret) {
+int groupdb_by_gid(sd_varlink *v, gid_t gid, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r;
@@ -1470,7 +1485,7 @@ int groupdb_by_gid(gid_t gid, const UserDBMatch *match, UserDBFlags flags, Group
                 return -ENOMEM;
 
         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetGroupRecord", /* more= */ false, query, flags);
+        r = userdb_start_query(v, iterator, "io.systemd.UserDatabase.GetGroupRecord", /* more= */ false, query, flags);
         if (r >= 0) {
                 r = userdb_process(iterator, /* ret_user_record= */ NULL, &gr, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
                 if (r == -ENOEXEC)
@@ -1491,7 +1506,7 @@ int groupdb_by_gid(gid_t gid, const UserDBMatch *match, UserDBFlags flags, Group
         return 0;
 }
 
-int groupdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret) {
+int groupdb_all(sd_varlink *v, const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r, qr;
@@ -1506,7 +1521,7 @@ int groupdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **re
         if (!iterator)
                 return -ENOMEM;
 
-        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetGroupRecord", /* more= */ true, query, flags);
+        qr = userdb_start_query(v, iterator, "io.systemd.UserDatabase.GetGroupRecord", /* more= */ true, query, flags);
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
@@ -1675,7 +1690,7 @@ static void discover_membership_dropins(UserDBIterator *i, UserDBFlags flags) {
                 log_debug_errno(r, "Failed to find membership drop-ins, ignoring: %m");
 }
 
-int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **ret) {
+int membershipdb_by_user(sd_varlink *v, const char *name, UserDBFlags flags, UserDBIterator **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r, qr;
@@ -1697,7 +1712,7 @@ int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **r
         if (!iterator->filter_user_name)
                 return -ENOMEM;
 
-        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, query, flags);
+        qr = userdb_start_query(v, iterator, "io.systemd.UserDatabase.GetMemberships", true, query, flags);
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
@@ -1720,7 +1735,7 @@ int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **r
         return 0;
 }
 
-int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **ret) {
+int membershipdb_by_group(sd_varlink *v, const char *name, UserDBFlags flags, UserDBIterator **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r, qr;
@@ -1742,7 +1757,7 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
         if (!iterator->filter_group_name)
                 return -ENOMEM;
 
-        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, query, flags);
+        qr = userdb_start_query(v, iterator, "io.systemd.UserDatabase.GetMemberships", true, query, flags);
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
@@ -1778,7 +1793,7 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
         return 0;
 }
 
-int membershipdb_all(UserDBFlags flags, UserDBIterator **ret) {
+int membershipdb_all(sd_varlink *v, UserDBFlags flags, UserDBIterator **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         int r, qr;
 
@@ -1788,7 +1803,7 @@ int membershipdb_all(UserDBFlags flags, UserDBIterator **ret) {
         if (!iterator)
                 return -ENOMEM;
 
-        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, NULL, flags);
+        qr = userdb_start_query(v, iterator, "io.systemd.UserDatabase.GetMemberships", true, NULL, flags);
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
@@ -1951,7 +1966,7 @@ int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret)
         assert(name);
         assert(ret);
 
-        r = membershipdb_by_group(name, flags, &iterator);
+        r = membershipdb_by_group(NULL, name, flags, &iterator);
         if (r < 0)
                 return r;
 

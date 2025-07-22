@@ -176,14 +176,14 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 return r;
 
         if (uid_is_valid(p.uid))
-                r = userdb_by_uid(p.uid, &p.match, userdb_flags, &hr);
+                r = userdb_by_uid(link, p.uid, &p.match, userdb_flags, &hr);
         else if (p.name)
-                r = userdb_by_name(p.name, &p.match, userdb_flags, &hr);
+                r = userdb_by_name(link, p.name, &p.match, userdb_flags, &hr);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *last = NULL;
 
-                r = userdb_all(&p.match, userdb_flags, &iterator);
+                r = userdb_all(link, &p.match, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
                         /* We turn off Varlink lookups in various cases (e.g. in case we only enable DropIn
                          * backend) — this might make userdb_all return ENOLINK (which indicates that varlink
@@ -321,14 +321,14 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 return r;
 
         if (gid_is_valid(p.gid))
-                r = groupdb_by_gid(p.gid, &p.match, userdb_flags, &g);
+                r = groupdb_by_gid(link, p.gid, &p.match,userdb_flags, &g);
         else if (p.name)
-                r = groupdb_by_name(p.name, &p.match, userdb_flags, &g);
+                r = groupdb_by_name(link, p.name, &p.match, userdb_flags, &g);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *last = NULL;
 
-                r = groupdb_all(&p.match, userdb_flags, &iterator);
+                r = groupdb_all(link, &p.match, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
                         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
                 if (r < 0)
@@ -412,11 +412,11 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
                 return r;
 
         if (p.group_name)
-                r = membershipdb_by_group(p.group_name, userdb_flags, &iterator);
+                r = membershipdb_by_group(link, p.group_name, userdb_flags, &iterator);
         else if (p.user_name)
-                r = membershipdb_by_user(p.user_name, userdb_flags, &iterator);
+                r = membershipdb_by_user(link, p.user_name, userdb_flags, &iterator);
         else
-                r = membershipdb_all(userdb_flags, &iterator);
+                r = membershipdb_all(link, userdb_flags, &iterator);
         if (IN_SET(r, -ESRCH, -ENOLINK))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
         if (r < 0)
