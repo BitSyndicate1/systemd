@@ -509,7 +509,7 @@ static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *r
         }
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        r = userdb_by_name(NULL, name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+        r = userdb_by_name(name, &USERDB_MATCH_ROOT_AND_SYSTEM,
                            USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                            &ur);
         if (r == -ESRCH)
@@ -2674,7 +2674,7 @@ static int udev_rule_apply_token_to_event(
                         return true;
 
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-                r = userdb_by_name(NULL, owner, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                r = userdb_by_name(owner, &USERDB_MATCH_ROOT_AND_SYSTEM,
                                    USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                    &ur);
                 if (r == -ESRCH)

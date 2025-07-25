@@ -74,7 +74,7 @@ static int run(int argc, char **argv) {
 
         const char *user = argv[1];
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        r = userdb_by_name(NULL, user, /* match= */ NULL, USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW, &ur);
+        r = userdb_by_name(user, /* match= */ NULL, USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW, &ur);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve user '%s': %m", user);
 

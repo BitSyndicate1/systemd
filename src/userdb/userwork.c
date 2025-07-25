@@ -176,14 +176,14 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 return r;
 
         if (uid_is_valid(p.uid))
-                r = userdb_by_uid(link, p.uid, &p.match, userdb_flags, &hr);
+                r = userdb_by_uid_with_impersonation(link, p.uid, &p.match, userdb_flags, &hr);
         else if (p.name)
-                r = userdb_by_name(link, p.name, &p.match, userdb_flags, &hr);
+                r = userdb_by_name_with_impersonation(link, p.name, &p.match, userdb_flags, &hr);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *last = NULL;
 
-                r = userdb_all(link, &p.match, userdb_flags, &iterator);
+                r = userdb_all_with_impersoation(link, &p.match, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
                         /* We turn off Varlink lookups in various cases (e.g. in case we only enable DropIn
                          * backend) — this might make userdb_all return ENOLINK (which indicates that varlink

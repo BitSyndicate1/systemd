@@ -441,7 +441,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
-                        r = userdb_by_name(NULL, *i, &match, arg_userdb_flags|USERDB_PARSE_NUMERIC, &ur);
+                        r = userdb_by_name(*i, &match, arg_userdb_flags|USERDB_PARSE_NUMERIC, &ur);
                         if (r < 0) {
                                 if (r == -ESRCH)
                                         log_error_errno(r, "User %s does not exist.", *i);
@@ -474,7 +474,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
 
 
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-                r = userdb_all(NULL, &match, arg_userdb_flags, &iterator);
+                r = userdb_all(&match, arg_userdb_flags, &iterator);
                 if (r == -ENOLINK) /* ENOLINK → Didn't find answer without Varlink, and didn't try Varlink because was configured to off. */
                         log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
                 else if (r == -ESRCH) /* ESRCH → Couldn't find any suitable entry, but we checked all sources */
@@ -1135,7 +1135,7 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
                 chain_invocation = NULL;
         }
 
-        r = userdb_by_name(NULL, argv[1], NULL, arg_userdb_flags, &ur);
+        r = userdb_by_name(argv[1], NULL, arg_userdb_flags, &ur);
         if (r == -ESRCH)
                 log_error_errno(r, "User %s does not exist.", argv[1]);
         else if (r == -EHOSTDOWN)
@@ -1244,7 +1244,7 @@ static int load_credential_one(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "JSON user record missing gid field");
 
                 _cleanup_(user_record_unrefp) UserRecord *m = NULL;
-                r = userdb_by_name(NULL, ur->user_name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &m);
+                r = userdb_by_name(ur->user_name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &m);
                 if (r >= 0) {
                         if (m->uid != ur->uid)
                                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
@@ -1258,7 +1258,7 @@ static int load_credential_one(
                         return log_error_errno(r, "Failed to check if user with name %s already exists: %m", ur->user_name);
 
                 m = user_record_unref(m);
-                r = userdb_by_uid(NULL, ur->uid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &m);
+                r = userdb_by_uid(ur->uid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &m);
                 if (r >= 0) {
                         if (!streq_ptr(ur->user_name, m->user_name))
                                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),

@@ -84,7 +84,7 @@ enum nss_status userdb_getpwnam(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = userdb_by_name(NULL, name, /* match= */ NULL, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &hr);
+        r = userdb_by_name(name, /* match= */ NULL, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &hr);
         if (r == -ESRCH)
                 return NSS_STATUS_NOTFOUND;
         if (r < 0) {
@@ -117,7 +117,7 @@ enum nss_status userdb_getpwuid(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = userdb_by_uid(NULL, uid, /* match= */ NULL, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &hr);
+        r = userdb_by_uid(uid, /* match= */ NULL, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &hr);
         if (r == -ESRCH)
                 return NSS_STATUS_NOTFOUND;
         if (r < 0) {
@@ -193,7 +193,7 @@ enum nss_status userdb_getspnam(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = userdb_by_name(NULL, name, /* match= */ NULL, nss_glue_userdb_flags(), &hr);
+        r = userdb_by_name(name, /* match= */ NULL, nss_glue_userdb_flags(), &hr);
         if (r == -ESRCH)
                 return NSS_STATUS_NOTFOUND;
         if (r < 0) {

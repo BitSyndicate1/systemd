@@ -42,9 +42,21 @@ typedef enum UserDBFlags {
  *  -ETIMEDOUT: Time-out
  */
 
-int userdb_by_name(sd_varlink *v, const char *name, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret);
-int userdb_by_uid(sd_varlink *v, uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret);
-int userdb_all(sd_varlink *v, const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret);
+int userdb_by_name_with_impersonation(sd_varlink *v, const char *name, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret);
+static inline int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret) {
+        return userdb_by_name_with_impersonation(NULL, name, match, flags, ret);
+};
+
+int userdb_by_uid_with_impersonation(sd_varlink *v, uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret);
+static inline int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret) {
+        return userdb_by_uid_with_impersonation(NULL, uid, match, flags, ret);
+}
+
+int userdb_all_with_impersoation(sd_varlink *v, const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret);
+static inline int userdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret) {
+        return userdb_all_with_impersoation(NULL, match, flags, ret);
+}
+
 int userdb_iterator_get(UserDBIterator *iterator, const UserDBMatch *match, UserRecord **ret);
 
 int groupdb_by_name(sd_varlink *v, const char *name, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret);

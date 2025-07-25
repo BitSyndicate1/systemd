@@ -620,7 +620,7 @@ enum nss_status _nss_systemd_setpwent(int stayopen) {
          * (think: LDAP/NIS type situations), and our synthesizing of root/nobody is a robustness fallback
          * only, which matters for getpwnam()/getpwuid() primarily, which are the main NSS entrypoints to the
          * user database. */
-        r = userdb_all(NULL, /* match= */ NULL, nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE_INTRINSIC | USERDB_DONT_SYNTHESIZE_FOREIGN, &getpwent_data.iterator);
+        r = userdb_all(/* match= */ NULL, nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE_INTRINSIC | USERDB_DONT_SYNTHESIZE_FOREIGN, &getpwent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -660,7 +660,7 @@ enum nss_status _nss_systemd_setspent(int stayopen) {
         getspent_data.by_membership = false;
 
         /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE_INTRINSIC here */
-        r = userdb_all(NULL, /* match= */ NULL, nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE_INTRINSIC | USERDB_DONT_SYNTHESIZE_FOREIGN, &getspent_data.iterator);
+        r = userdb_all(/* match= */ NULL, nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE_INTRINSIC | USERDB_DONT_SYNTHESIZE_FOREIGN, &getspent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 

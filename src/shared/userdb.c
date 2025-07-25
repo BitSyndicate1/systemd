@@ -906,7 +906,7 @@ static int userdb_by_name_fallbacks(
         return -ESRCH;
 }
 
-int userdb_by_name(sd_varlink *v, const char *name, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret) {
+int userdb_by_name_with_impersonation(sd_varlink *v, const char *name, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r;
@@ -925,7 +925,7 @@ int userdb_by_name(sd_varlink *v, const char *name, const UserDBMatch *match, Us
                 uid_t uid;
 
                 if (parse_uid(name, &uid) >= 0)
-                        return userdb_by_uid(v, uid, match, flags, ret);
+                        return userdb_by_uid_with_impersonation(v, uid, match, flags, ret);
         }
 
         if (!valid_user_group_name(name, VALID_USER_RELAX))
@@ -1013,7 +1013,7 @@ static int userdb_by_uid_fallbacks(
         return -ESRCH;
 }
 
-int userdb_by_uid(sd_varlink *v, uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret) {
+int userdb_by_uid_with_impersonation(sd_varlink *v, uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r;
@@ -1055,7 +1055,7 @@ int userdb_by_uid(sd_varlink *v, uid_t uid, const UserDBMatch *match, UserDBFlag
         return 0;
 }
 
-int userdb_all(sd_varlink *v, const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret) {
+int userdb_all_with_impersoation(sd_varlink *v, const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r, qr;

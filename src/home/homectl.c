@@ -2585,7 +2585,7 @@ static int has_regular_user(void) {
 
         match.disposition_mask = INDEX_TO_MASK(uint64_t, USER_REGULAR);
 
-        r = userdb_all(NULL, &match, USERDB_SUPPRESS_SHADOW, &iterator);
+        r = userdb_all(&match, USERDB_SUPPRESS_SHADOW, &iterator);
         if (r < 0)
                 return log_error_errno(r, "Failed to create user enumerator: %m");
 
@@ -2633,7 +2633,7 @@ static int acquire_group_list(char ***ret) {
                                 UserDBMatch user_match = USERDB_MATCH_NULL;
                                 user_match.disposition_mask = INDEX_TO_MASK(uint64_t, USER_REGULAR);
 
-                                r = userdb_by_name(NULL, gr->group_name, &user_match, USERDB_SUPPRESS_SHADOW, &ur);
+                                r = userdb_by_name(gr->group_name, &user_match, USERDB_SUPPRESS_SHADOW, &ur);
                                 if (r < 0 && r != -ESRCH)
                                         return log_debug_errno(r, "Failed to check if matching user exists for group '%s': %m", gr->group_name);
 
@@ -2716,7 +2716,7 @@ static int create_interactively(void) {
                         continue;
                 }
 
-                r = userdb_by_name(NULL, username, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
+                r = userdb_by_name(username, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
                 if (r == -ESRCH)
                         break;
                 if (r < 0)

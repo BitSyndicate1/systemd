@@ -236,7 +236,7 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
         if (t->user_name) {
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
-                r = userdb_by_name(NULL, t->user_name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                r = userdb_by_name(t->user_name, &USERDB_MATCH_ROOT_AND_SYSTEM,
                                    USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC,
                                    &ur);
                 if (r == -ENOEXEC)
