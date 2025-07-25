@@ -41,7 +41,7 @@ static bool client_is_trusted(sd_varlink *link, Home *h) {
         }
 
         trusted = peer_uid == 0 || peer_uid == h->uid;
-        log_debug("Peer UID is " UID_FMT "; %strusted", peer_uid, (trusted ? "" : "un"));
+        log_debug("Peer UID is " UID_FMT "; %s", peer_uid, trusted ? "trusted" : "untrusted");
         return trusted;
 }
 

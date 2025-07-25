@@ -780,7 +780,8 @@ static int varlink_write(sd_varlink *v) {
                 if (!prefer_write) {
                         struct msghdr msgh;
                         struct iovec iov;
-                        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) cmsg;
+                        // initialisation added because oss-fuzz found uninitialised memory here somehow
+                        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) cmsg = {};
 
                         struct cmsghdr *cmsgp;
 
@@ -942,7 +943,7 @@ static int varlink_read(sd_varlink *v) {
                                         v->ucred_recv = *ucred;
                                         v->ucred_recv_acquired = true;
                                 }
-                                log_debug("Passed creds %s acquired", v->ucred_recv_acquired ? "successfully" : "could not be");
+                                log_trace("Passed creds %s acquired", v->ucred_recv_acquired ? "successfully" : "could not be");
                         }
                 }
                 if (prefer_read) {
@@ -2887,22 +2888,25 @@ _public_ void* sd_varlink_get_userdata(sd_varlink *v) {
         return v->userdata;
 }
 
-_public_ void sd_varlink_ucred_enable_impersonate(sd_varlink *v_send, sd_varlink *v_recv) {
+_public_ int sd_varlink_impersonate(sd_varlink *v_send, sd_varlink *v_recv) {
+        assert_return(v_send, -EINVAL);
+        assert_return(v_recv, -EINVAL);
         if (v_recv->ucred_recv_acquired) {
-                memcpy(&v_recv->ucred_send, &v_recv->ucred_recv, sizeof(struct ucred));
+                v_send->ucred_send = v_recv->ucred_recv;
                 v_send->ucred_send_set = true;
                 log_debug("Impersonating using SCM_CREDENTIALS");
-                return;
+                return 0;
         }
 
-        varlink_acquire_ucred_peer(v_recv);
+        (void)varlink_acquire_ucred_peer(v_recv);
         if (v_recv->ucred_peer_acquired) {
-                memcpy(&v_send->ucred_send, &v_recv->ucred_peer, sizeof(struct ucred));
+                v_send->ucred_send = v_recv->ucred_peer;
                 v_send->ucred_send_set = true;
                 log_debug("Impersonating using SO_PEERCRD");
-                return;
+                return 0;
         }
         log_debug("Impersonating not possible, no credentials to use");
+        return -1;// TODO;
 }
 
 _public_ int sd_varlink_get_uid(sd_varlink* v, uid_t *ret) {
@@ -3654,8 +3658,9 @@ static int connect_callback(sd_event_source *source, int fd, uint32_t revents, v
                 return varlink_server_log_errno(ss->server, errno, "Failed to accept incoming socket: %m");
         }
 
-        if (setsockopt_int(cfd, SOL_SOCKET, SO_PASSCRED, true) < 0)
-                return varlink_server_log_errno(ss->server, errno, "Failed to set SO_PASSCRED on incoming socket: %m");
+        r = setsockopt_int(cfd, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return varlink_server_log_errno(ss->server, r, "Failed to set SO_PASSCRED on incoming socket: %m");
 
         r = sd_varlink_server_add_connection(ss->server, cfd, &v);
         if (r < 0)

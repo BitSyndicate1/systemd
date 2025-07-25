@@ -461,7 +461,7 @@ static int userdb_connect(
                 return log_debug_errno(r, "Unable to connect to %s: %m", path);
 
         if (vrecv)
-                sd_varlink_ucred_enable_impersonate(vl, vrecv);
+                sd_varlink_impersonate(vl, vrecv);
         sd_varlink_set_userdata(vl, iterator);
 
         if (!iterator->event) {
